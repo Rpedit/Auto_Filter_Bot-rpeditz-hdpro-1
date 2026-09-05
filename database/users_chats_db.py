@@ -4,7 +4,7 @@ import pytz
 import motor.motor_asyncio
 import certifi
 from info import (
-    DATABASE_NAME,DATABASE_URI,DATABASE_URI2, MULTIPLE_DB, MAINTENANCE, PM_SEARCH,
+    DATABASE_NAME, DATABASE_URI, DATABASE_URI2, MULTIPLE_DB, MAINTENANCE, PM_SEARCH,
     BUTTON_MODE, P_TTI_SHOW_OFF, PROTECT_CONTENT, IMDB, SPELL_CHECK_REPLY, MELCOW_NEW_USERS, 
     AUTO_DELETE, AUTO_FFILTER, MAX_BTN, IMDB_TEMPLATE, LOG_VR_CHANNEL, TUTORIAL, TUTORIAL_2,
     TUTORIAL_3, SHORTENER_API, SHORTENER_API2, SHORTENER_API3, SHORTENER_WEBSITE, SHORTENER_WEBSITE2,
@@ -21,7 +21,7 @@ class Database:
         # Collections
         self.col = self.db.users
         self.grp = self.db.groups
-        self.users = self.db.uersz #Premium users
+        self.users = self.db.uersz # Premium users
         self.req = self.db.requests
         self.botcol = self.db.bot_settings
         self.misc = self.db.misc
@@ -42,7 +42,7 @@ class Database:
         logger.info("All filenames notification have been deleted.")
         return True
      
-    async def add_join_req(self, user_id: int, channel_id: int): #update
+    async def add_join_req(self, user_id: int, channel_id: int):
         await self.req.update_one(
             {'user_id': user_id},
             {
@@ -61,8 +61,8 @@ class Database:
 
     def new_user(self, id, name):
         return dict(
-            id = id,
-            name = name,
+            id=id,
+            name=name,
             ban_status=dict(
                 is_banned=False,
                 ban_reason="",
@@ -71,8 +71,8 @@ class Database:
 
     def new_group(self, id, title):
         return dict(
-            id = id,
-            title = title,
+            id=id,
+            title=title,
             chat_status=dict(
                 is_disabled=False,
                 reason="",
@@ -84,7 +84,7 @@ class Database:
         await self.col.insert_one(user)
     
     async def is_user_exist(self, id):
-        user = await self.col.find_one({'id':int(id)})
+        user = await self.col.find_one({'id': int(id)})
         return bool(user)
     
     async def total_users_count(self):
@@ -110,7 +110,7 @@ class Database:
             is_banned=False,
             ban_reason=''
         )
-        user = await self.col.find_one({'id':int(id)})
+        user = await self.col.find_one({'id': int(id)})
         if not user:
             return default
         return user.get('ban_status', default)
@@ -136,14 +136,14 @@ class Database:
         await self.grp.insert_one(chat)
     
     async def get_chat(self, chat):
-        chat = await self.grp.find_one({'id':int(chat)})
+        chat = await self.grp.find_one({'id': int(chat)})
         return False if not chat else chat.get('chat_status')
     
     async def re_enable_chat(self, id):
-        chat_status=dict(
+        chat_status = dict(
             is_disabled=False,
             reason="",
-            )
+        )
         await self.grp.update_one({'id': int(id)}, {'$set': {'chat_status': chat_status}})
         
     async def update_settings(self, id, settings):
@@ -207,10 +207,10 @@ class Database:
             raise  
 
     async def disable_chat(self, chat, reason="No Reason"):
-        chat_status=dict(
+        chat_status = dict(
             is_disabled=True,
             reason=reason,
-            )
+        )
         await self.grp.update_one({'id': int(chat)}, {'$set': {'chat_status': chat_status}})
 
     async def total_chat_count(self):
@@ -224,8 +224,11 @@ class Database:
         return (await self.db.command("dbstats"))['dataSize']
 
     async def get_user(self, user_id):
-        user_data = await self.users.find_one({"id": user_id})
-        return user_data
+        try:
+            uid = int(user_id)
+        except Exception:
+            uid = user_id
+        return await self.users.find_one({"$or": [{"id": uid}, {"id": str(user_id)}]})
 
     async def update_user(self, user_data):
         await self.users.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
@@ -243,7 +246,7 @@ class Database:
             user = await self.misc.insert_one(res)
         return user
 
-    async def update_notcopy_user(self, user_id, value:dict):
+    async def update_notcopy_user(self, user_id, value: dict):
         user_id = int(user_id)
         myquery = {"user_id": user_id}
         newvalues = {"$set": value}
@@ -283,7 +286,7 @@ class Database:
         user = await self.get_notcopy_user(user_id)
         if not user.get("second_time_verified"):
             ist_timezone = pytz.timezone('Asia/Kolkata')
-            await self.update_notcopy_user(user_id, {"second_time_verified":datetime.datetime(2019, 5, 17, 0, 0, 0, tzinfo=ist_timezone)})
+            await self.update_notcopy_user(user_id, {"second_time_verified": datetime.datetime(2019, 5, 17, 0, 0, 0, tzinfo=ist_timezone)})
             user = await self.get_notcopy_user(user_id)
         if await self.is_user_verified(user_id):
             try:
@@ -305,7 +308,7 @@ class Database:
         user = await self.get_notcopy_user(user_id)
         if not user.get("third_time_verified"):
             ist_timezone = pytz.timezone('Asia/Kolkata')
-            await self.update_notcopy_user(user_id, {"third_time_verified":datetime.datetime(2018, 5, 17, 0, 0, 0, tzinfo=ist_timezone)})
+            await self.update_notcopy_user(user_id, {"third_time_verified": datetime.datetime(2018, 5, 17, 0, 0, 0, tzinfo=ist_timezone)})
             user = await self.get_notcopy_user(user_id)
         if await self.user_verified(user_id):
             try:
@@ -324,7 +327,7 @@ class Database:
         return False
    
     async def create_verify_id(self, user_id: int, hash):
-        res = {"user_id": user_id, "hash":hash, "verified":False}
+        res = {"user_id": user_id, "hash": hash, "verified": False}
         return await self.verify_id.insert_one(res)
 
     async def get_verify_id_info(self, user_id: int, hash):
@@ -332,7 +335,7 @@ class Database:
 
     async def update_verify_id_info(self, user_id, hash, value: dict):
         myquery = {"user_id": user_id, "hash": hash}
-        newvalues = { "$set": value }
+        newvalues = {"$set": value}
         return await self.verify_id.update_one(myquery, newvalues)
         
     async def has_premium_access(self, user_id):
@@ -365,9 +368,13 @@ class Database:
         return expired_users
 
     async def remove_premium_access(self, user_id):
-        return await self.users.update_one(
-            {"id": user_id}, {"$unset": {"expiry_time": ""}}
-        )
+        try:
+            uid = int(user_id)
+        except Exception:
+            uid = user_id
+        return await self.users.delete_one({
+            "$or": [{"id": uid}, {"id": str(user_id)}]
+        })
 
     async def check_trial_status(self, user_id):
         user_data = await self.get_user(user_id)
@@ -376,7 +383,7 @@ class Database:
         return False
 
     async def give_free_trial(self, user_id):
-        seconds = 5*60         
+        seconds = 5 * 60         
         expiry_time = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
         user_data = {"id": user_id, "expiry_time": expiry_time, "has_free_trial": True}
         await self.users.update_one({"id": user_id}, {"$set": user_data}, upsert=True)
