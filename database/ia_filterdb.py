@@ -8,6 +8,7 @@ from collections import defaultdict
 from pymongo.errors import DuplicateKeyError
 from umongo import Instance, Document, fields
 from motor.motor_asyncio import AsyncIOMotorClient
+import certifi
 from utils import get_settings, save_group_settings
 from info import (
     COLLECTION_NAME, COVERX, DATABASE_NAME, DATABASE_URI, DATABASE_URI2,
@@ -29,13 +30,13 @@ def compile_regex(pattern):
     return re.compile(pattern, re.IGNORECASE)
 
 # Primary DB
-client = AsyncIOMotorClient(DATABASE_URI)
+client = AsyncIOMotorClient(DATABASE_URI, tlsCAFile=certifi.where())
 db = client[DATABASE_NAME]
 instance = Instance.from_db(db)
 
 # secondary db
 if MULTIPLE_DB and DATABASE_URI2:
-    client2 = AsyncIOMotorClient(DATABASE_URI2)
+    client2 = AsyncIOMotorClient(DATABASE_URI2, tlsCAFile=certifi.where())
     db2 = client2[DATABASE_NAME]
     instance2 = Instance.from_db(db2)
 else:
@@ -168,7 +169,6 @@ async def save_file(media):
             f"[ERROR] Failed commit of '{file_name}' to {target_db} DB.", exc_info=e
         )
         return False, 3
-    #logger.info(f"[SUCCESS] '{file_name}' saved to {target_db} DB.")
     return True, 1
 
 async def get_search_results(chat_id, query, file_type=None, max_results=None, offset=0, filter=False):
