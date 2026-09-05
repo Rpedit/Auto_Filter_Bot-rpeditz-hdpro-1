@@ -226,6 +226,7 @@ class Database:
     async def get_user(self, user_id):
         user_data = await self.users.find_one({"id": user_id})
         return user_data
+
     async def update_user(self, user_data):
         await self.users.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
   
@@ -343,7 +344,7 @@ class Database:
             elif isinstance(expiry_time, datetime.datetime) and datetime.datetime.now() <= expiry_time:
                 return True
             else:
-                await self.users.update_one({"id": user_id}, {"$set": {"expiry_time": None}})
+                await self.remove_premium_access(user_id)
         return False
 
     async def update_one(self, filter_query, update_data):
@@ -356,14 +357,16 @@ class Database:
 
     async def get_expired(self, current_time):
         expired_users = []
-        if data := self.users.find({"expiry_time": {"$lt": current_time}}):
-            async for user in data:
-                expired_users.append(user)
+        data = self.users.find({
+            "expiry_time": {"$type": "date", "$lt": current_time}
+        })
+        async for user in data:
+            expired_users.append(user)
         return expired_users
 
     async def remove_premium_access(self, user_id):
-        return await self.update_one(
-            {"id": user_id}, {"$set": {"expiry_time": None}}
+        return await self.users.update_one(
+            {"id": user_id}, {"$unset": {"expiry_time": ""}}
         )
 
     async def check_trial_status(self, user_id):
@@ -373,7 +376,6 @@ class Database:
         return False
 
     async def give_free_trial(self, user_id):
-        user_id = user_id
         seconds = 5*60         
         expiry_time = datetime.datetime.now() + datetime.timedelta(seconds=seconds)
         user_data = {"id": user_id, "expiry_time": expiry_time, "has_free_trial": True}
@@ -391,7 +393,7 @@ class Database:
         
     async def all_premium_users(self):
         count = await self.users.count_documents({
-        "expiry_time": {"$gt": datetime.datetime.now()}
+            "expiry_time": {"$gt": datetime.datetime.now()}
         })
         return count
         
@@ -412,7 +414,7 @@ class Database:
         )
 
     async def connect_group(self, group_id, user_id):
-        user= await self.connection.find_one({'_id': user_id})
+        user = await self.connection.find_one({'_id': user_id})
         if user:
             if group_id not in user["group_ids"]:
                 await self.connection.update_one({'_id': user_id}, {"$push": {"group_ids": group_id}})
