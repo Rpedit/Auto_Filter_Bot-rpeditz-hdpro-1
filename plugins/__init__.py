@@ -5,6 +5,7 @@ from datetime import datetime
 from database.users_chats_db import db
 from info import URL, PREMIUM_LOGS
 from Script import script
+from pyrogram.errors import InputUserDeactivated, UserIsBlocked, PeerIdInvalid
 import aiohttp
 import asyncio
 import logging
@@ -17,22 +18,33 @@ async def web_server():
     return web_app
 
 async def check_expired_premium(client):
-    while 1:
-        data = await db.get_expired(datetime.now())
-        for user in data:
-            user_id = user["id"]
-            await db.remove_premium_access(user_id)
-            try:
-                user = await client.get_users(user_id)
-                await client.send_message(
-                    chat_id=user_id,
-                    text=script.PREMIUM_END_TEXT.format(user.mention)
-                )
-                await client.send_message(PREMIUM_LOGS, text=f"<b>#Premium_Expire\n\nUser name: {user.mention}\nUser id: <code>{user_id}</code>")
-            except Exception as e:
-                logger.error("Premium expire notification error: %s", e)
-            await sleep(0.5)
-        await sleep(1)
+    while True:
+        try:
+            data = await db.get_expired(datetime.now())
+            for u in data:
+                user_id = u["id"]
+                await db.remove_premium_access(user_id)
+                try:
+                    tg_user = await client.get_users(user_id)
+                    mention = tg_user.mention if tg_user else "User"
+                    await client.send_message(
+                        chat_id=user_id,
+                        text=script.PREMIUM_END_TEXT.format(mention)
+                    )
+                    await client.send_message(
+                        PREMIUM_LOGS, 
+                        text=f"<b>#Premium_Expire\n\nUser name: {mention}\nUser id: <code>{user_id}</code></b>"
+                    )
+                except (InputUserDeactivated, UserIsBlocked, PeerIdInvalid):
+                    logger.warning(f"User {user_id} deactivated ya blocked hai. Skipped.")
+                except Exception as e:
+                    logger.error(f"Premium expire notification error for {user_id}: {e}")
+                await sleep(0.5)
+        except Exception as e:
+            logger.error(f"Error in check_expired_premium background task: {e}")
+        
+        # Har 1 second me database ko choke karne ki jagah 60 second wait karega
+        await sleep(60)
 
 async def keep_alive():
     """Keep bot alive by sending periodic pings."""
@@ -44,5 +56,4 @@ async def keep_alive():
                     if resp.status != 200:
                         logger.warning(f"⚠️ Ping Error! Status: {resp.status}")
             except Exception as e:
-                logger.error(f"❌ Ping Failed: {e}")           
-
+                logger.error(f"❌ Ping Failed: {e}")
