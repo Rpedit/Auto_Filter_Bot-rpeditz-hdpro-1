@@ -2,6 +2,7 @@ import datetime
 import logging
 import pytz  
 import motor.motor_asyncio
+import certifi
 from info import (
     DATABASE_NAME,DATABASE_URI,DATABASE_URI2, MULTIPLE_DB, MAINTENANCE, PM_SEARCH,
     BUTTON_MODE, P_TTI_SHOW_OFF, PROTECT_CONTENT, IMDB, SPELL_CHECK_REPLY, MELCOW_NEW_USERS, 
@@ -11,12 +12,11 @@ from info import (
     MOVIE_UPDATE_NOTIFICATION
 )
 
-
 logger = logging.getLogger(__name__)
 
 class Database:    
     def __init__(self, uri, database_name):
-        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri)
+        self._client = motor.motor_asyncio.AsyncIOMotorClient(uri, tlsCAFile=certifi.where())
         self.db = self._client[database_name]
         # Collections
         self.col = self.db.users
@@ -41,7 +41,6 @@ class Database:
         await self.movie_updates.delete_many({})
         logger.info("All filenames notification have been deleted.")
         return True
- 
      
     async def add_join_req(self, user_id: int, channel_id: int): #update
         await self.req.update_one(
@@ -346,8 +345,6 @@ class Database:
             else:
                 await self.users.update_one({"id": user_id}, {"$set": {"expiry_time": None}})
         return False
-        
-    
 
     async def update_one(self, filter_query, update_data):
         try:
@@ -458,5 +455,3 @@ if MULTIPLE_DB and DATABASE_URI2:
     db2 = Database(DATABASE_URI2, DATABASE_NAME)
 else:
     db2 = db
-
-
